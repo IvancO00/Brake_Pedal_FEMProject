@@ -111,11 +111,11 @@ Pldisp,1
 /dscale,1,1
 Pldisp,1
 Prnsol,u,comps
-!Etable,axialforce,SMISC,1
+Etable,axialforce,SMISC,1
 !Etable,axialstress,LS,1
 !Etable,axialstrain,LEPEL,1
 !Pletab,axialstrain
-!Pletab,axialforce
+Pletab,axialforce
 !Pletab,axialstress
 !Pretab,axialforce,axialstress
 !Prrsol,f
