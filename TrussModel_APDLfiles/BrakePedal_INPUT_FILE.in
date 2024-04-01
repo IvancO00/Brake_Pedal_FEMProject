@@ -1,0 +1,220 @@
+! ---------------------------------------------------------------------------------
+! STUDY THE INTERNAL STRESSES OF THE BRAKE PEDAL
+! ...............................................................
+! Reticular structure assumption
+! ---------------------------------------------------------------------------------
+
+FINISH
+/CLEAR, START, NEW
+
+/TITLE, Brake Support Reticular Truss
+
+! >>>>>>>>>>>> PARAMETERS <<<<<<<<<<<<<<<
+
+! Geometry parameters
+ASC = 28*4
+Apiston = 8.41
+
+
+! Material properties
+E_Young = 70000
+ni      = 0.3
+
+! Mesh parameters
+dim_el  = 0.1		 ! Element size
+
+! Force
+BRAKEFORCE = 200*9.81/3
+
+
+!--------------------------
+! PREPROCESSOR
+!--------------------------
+
+/PREP7
+
+! >>>>>>>>>>>> MATERIAL AND ELEMENT <<<<<<<<<<<<<<<
+ET,1,180
+SECTYPE,1,LINK
+SECDATA,ASC
+
+ET,2,180
+SECTYPE,2,LINK
+SECDATA,Apiston
+
+MP,EX,1,E_Young
+MP,PRXY,1,ni
+
+! >>>>>>>>>>>> BUILD MODEL <<<<<<<<<<<<<<<
+!Node definition
+N,1,0,0
+N,2,-24,31
+N,3,18.69,119.5
+N,4,-24,135.25
+N,5,20,165
+N,6,-24,185.23
+N,7,-24,225.53
+N,8,40.40,-2.88
+
+!Element definition
+TYPE,1
+SECNUM,1
+MAT,1
+
+E,1,2
+E,1,3
+E,2,3
+E,2,4
+E,3,4
+E,4,5
+E,3,5
+E,4,6
+E,5,6
+E,6,7
+E,7,5
+
+TYPE,1
+SECNUM,2
+MAT,1
+E,8,5
+
+!/eshape,1
+eplot
+
+Save
+FINISH
+
+/solu
+!Constraint
+D,all,uz,0
+D,1,uy,0
+D,1,ux,0
+D,8,uy,0
+D,8,ux,0
+
+!Load
+NSEL,s,node,,4
+NSEL,a,node,,6
+NSEL,a,node,,7
+F,all,fx,BRAKEFORCE
+
+!Solution
+NSEL,all
+outres,all,all
+SOLVE
+FINISH
+
+! Postprocess
+/post1
+set,last
+Pldisp,1
+/dscale,1,1
+Pldisp,1
+Prnsol,u,comps
+!Etable,axialforce,SMISC,1
+!Etable,axialstress,LS,1
+!Etable,axialstrain,LEPEL,1
+!Pletab,axialstrain
+!Pletab,axialforce
+!Pletab,axialstress
+!Pretab,axialforce,axialstress
+!Prrsol,f
+
+
+
+! >>>>>>>>>>>> WRITE RESULTS IN A FILE <<<<<<<<<<<<<<<
+
+!!! Save the node displacements in a txt file !!!
+
+! select initial and final node
+*get,node_min,node,0,num,minD               !Get the minimum node id
+*get,node_max,node,0,num,maxD               !Get the maximum node id
+
+! open the file
+*cfopen, node_displacement_file,txt         !Create a txt file called "node_data_file"
+
+! for each node parse x,y,ux,uy,usum
+*vwrite
+('NODE',12x,'X',12x,'Y',12x,'UX',12x,'UY',12x,'USUM')
+*do,i,node_min,node_max,1                   !Loop over each node
+  nsel,s,node,,i,i                          !Select the corresponding node
+
+  *get,x,node,i,LOC,X                       !Get the x-location of the node i
+  *get,y,node,i,LOC,Y                       !Get the Y-location of the node i
+  
+  *get,ux, node, i,U,X                      !Get the x-displacement of node i
+  *get,uy, node, i,U,Y                      !Get the x-displacement of node i
+  *get,usum, node, i,U,SUM                  !Get the x-displacement of node i
+  
+  *vwrite,i,x,y,ux,uy,usum                  !Write out these values
+  (F6.0,1x,F12.4,2x,F12.4,2x,F12.4,2x,F12.4,2x,F12.4)                                  !Define the format
+*enddo
+
+*CFCLOS                             ! Close file
+
+!!! Save the stress along x in a txt file !!!
+
+! define a component (cm) of the selected elements (elemset)
+cm,elemset,elem
+! get the number of elemnts (ncount) in the set (elemset)
+*get,ncount,elem,,count
+alls
+! get the number of elemnts (ncount2) in the whole model
+*get,ncount2,elem,,count
+! select the element set of interest (elemset)
+cmsel,s,elemset
+! define two arrays scrap2 and stress_comp
+*dim,scrap2,array,ncount2,2 ! temporary array, length = ncount2
+*dim,stress_comp,array,ncount,2 ! length = ncount
+! getting component stresses for all the elements and writing them in txt file
+alls
+*VGET,scrap2(1,1),elem, , elist
+etable,sx,LS,1
+*vget,scrap2(1,2),elem,,etab,sx
+
+*vmask,mask(1) ! place "compressed" results (only those for selected elements) in final array
+*vfun,stress_comp(1,1),comp,scrap2(1,1)
+*vmask,mask(1)
+*vfun,stress_comp(1,2),comp,scrap2(1,2)
+! Write stress components into a txt file
+*CFOPEN,'element_axialstress_file',txt
+*vwrite
+('ELEMENT',10x,'SX')
+*VWRITE,stress_comp(1,1),stress_comp(1,2)
+(F6.0,1x,F12.4)
+*CFCLOS
+
+
+!!! Save the axial forces in a txt file !!!
+
+! define a component (cm) of the selected elements (elemset)
+cm,elemset,elem
+! get the number of elemnts (ncount) in the set (elemset)
+*get,ncount,elem,,count
+alls
+! get the number of elemnts (ncount2) in the whole model
+*get,ncount2,elem,,count
+! select the element set of interest (elemset)
+cmsel,s,elemset
+! define two arrays scrap2 and stress_comp
+*dim,scrap3,array,ncount2,2 ! temporary array, length = ncount2
+*dim,axial_force,array,ncount,2 ! length = ncount
+! getting component stresses for all the elements and writing them in txt file
+alls
+*VGET,scrap3(1,1),elem, , elist
+etable,af,SMISC,1
+*vget,scrap3(1,2),elem,,etab,af
+
+*vmask,mask(1) ! place "compressed" results (only those for selected elements) in final array
+*vfun,axial_force(1,1),comp,scrap3(1,1)
+*vmask,mask(1)
+*vfun,axial_force(1,2),comp,scrap3(1,2)
+! Write stress components into a txt file
+*CFOPEN,'element_axialforce_file',txt
+*vwrite
+('ELEMENT',5x,'AxialForce')
+*VWRITE,axial_force(1,1),axial_force(1,2)
+(F6.0,3x,F12.4)
+*CFCLOS
+
+
